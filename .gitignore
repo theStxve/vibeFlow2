@@ -17,5 +17,3 @@ local.properties
 app/build/
 app/release/
 *.ps1
-RELEASE_NOTES_*.md
-SPOTIFY_DISCLAIMER.md
