@@ -37,4 +37,4 @@ If you don't have Android Studio, you can download the APK from the [releases](h
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## DISCLAIMER
-See [SPOTIFY_DISCLAIMER](SPOTIFY_DISCLAIMER) file for details on the use of the name "Spotify" in this project.
+See [SPOTIFY_DISCLAIMER.md](SPOTIFY_DISCLAIMER) file for details on the use of the name "Spotify" in this project.
