@@ -11,6 +11,11 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -417,6 +422,14 @@ fun SmartSyncCards(
     var fftEnabled by remember { mutableStateOf(prefs.getBoolean("fft_enabled", true)) }
     var gyroEnabled by remember { mutableStateOf(prefs.getBoolean("gyro_enabled", true)) }
 
+    // Dynamic launcher to request RECORD_AUDIO permission at runtime
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        fftEnabled = isGranted
+        prefs.edit().putBoolean("fft_enabled", isGranted).apply()
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         GlassCard {
             FeatureToggleRow(
@@ -441,9 +454,23 @@ fun SmartSyncCards(
                 title = "FFT Audio Visualizer",
                 subtitle = "Reacts to music frequency spectrum",
                 checked = fftEnabled,
-                onCheckedChange = { 
-                    fftEnabled = it
-                    prefs.edit().putBoolean("fft_enabled", it).apply()
+                onCheckedChange = { checked ->
+                    if (checked) {
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                        
+                        if (hasPermission) {
+                            fftEnabled = true
+                            prefs.edit().putBoolean("fft_enabled", true).apply()
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    } else {
+                        fftEnabled = false
+                        prefs.edit().putBoolean("fft_enabled", false).apply()
+                    }
                 }
             )
         }

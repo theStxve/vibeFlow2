@@ -13,7 +13,7 @@ import androidx.palette.graphics.Palette
 
 class MediaSyncService : NotificationListenerService() {
 
-    private var lastExtractedBitmap: Bitmap? = null
+    private var lastTrackId: String? = null
     private lateinit var mediaSessionManager: MediaSessionManager
     private val activeControllers = mutableMapOf<MediaController, MediaController.Callback>()
 
@@ -92,11 +92,15 @@ class MediaSyncService : NotificationListenerService() {
 
         val metadata = controller.metadata
         if (metadata != null) {
+            val title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
+            val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+            val trackId = "${title}_${artist}"
+
             val bitmap = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART) 
                 ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             
-            if (bitmap != null && bitmap != lastExtractedBitmap) {
-                lastExtractedBitmap = bitmap
+            if (bitmap != null && trackId != lastTrackId) {
+                lastTrackId = trackId
                 extractColorsFromBitmap(bitmap, prefs)
             }
         }
