@@ -384,7 +384,7 @@ fun ThemeCard(theme: ThemeItem, isActive: Boolean, onClick: () -> Unit) {
 @Composable
 fun StyleSelectionRow(prefs: android.content.SharedPreferences) {
     var activeStyle by remember { mutableStateOf(prefs.getInt("visual_style", 0)) }
-    val styles = listOf("Liquid Chrome", "Cosmic Plasma", "Frosted Aurora", "Pure Chrome")
+    val styles = listOf("Liquid Chrome", "Cosmic Plasma", "Frosted Aurora", "Pure Chrome", "Iridescent Pearl")
     
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),

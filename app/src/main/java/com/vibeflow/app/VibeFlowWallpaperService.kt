@@ -293,12 +293,13 @@ class VibeFlowWallpaperService : WallpaperService() {
                 return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
             }
 
-            // 3-Octave Fractal Brownian Motion (FBM) for ultra performance
+            // Fractal Brownian Motion (fBM)
             float fbm(float2 p) {
                 float v = 0.0;
                 float a = 0.5;
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 4; i++) {
                     v += a * noise(p);
+                    // Rotate and scale
                     float nx = p.x * 0.8 - p.y * 0.6;
                     float ny = p.x * 0.6 + p.y * 0.8;
                     p = float2(nx, ny) * 2.0;
@@ -308,15 +309,20 @@ class VibeFlowWallpaperService : WallpaperService() {
             }
 
             float map(float2 p, float time) {
-                // Optimized domain warping: use cheap trigonometric functions to distort coordinates first
+                // Domain Warping: Displacing noise with noise for deep liquid folds
                 float2 q = float2(
-                    sin(p.x * 1.5 + time * 0.2),
-                    cos(p.y * 1.5 - time * 0.15)
+                    fbm(p + time * 0.15), 
+                    fbm(p + float2(5.2, 1.3) - time * 0.12)
                 );
                 
-                // Add distortion to coordinates and sample 3-octave FBM just once (667% speedup!)
-                float comp = 1.5 + iComplexity * 2.0;
-                return fbm(p + q * comp);
+                float2 r = float2(
+                    fbm(p + 3.0 * q + time * 0.2), 
+                    fbm(p + 3.0 * q + float2(8.3, 2.8) + time * 0.18)
+                );
+                
+                // Scale complexity parameter
+                float comp = 2.0 + iComplexity * 3.0;
+                return fbm(p + comp * r);
             }
 
             half4 main(float2 fragCoord) {
@@ -393,6 +399,77 @@ class VibeFlowWallpaperService : WallpaperService() {
                 finalColor += (colorA + colorB) * 0.000001;
                 
                 return half4(finalColor.r, finalColor.g, finalColor.b, 1.0);
+            }
+        """.trimIndent()
+
+        private val AGSL_PEARL_SHADER = """
+            uniform float2 iResolution;
+            uniform float iTime;
+            uniform float2 iOffset;
+            uniform float iAudio;
+            uniform float iSpeed;
+            uniform float iViscosity;
+            uniform float iComplexity;
+            uniform float iScale;
+            uniform float iParallax;
+            uniform float iAudioReact;
+            uniform float iBloom;
+            uniform float iContrast;
+            uniform float3 colorA;
+            uniform float3 colorB;
+
+            // Palette generator for iridescent colors
+            float3 spectral(float t) {
+                // Classic dynamic spectral shift formula (oil on water / mother-of-pearl)
+                float3 a = float3(0.5, 0.5, 0.5);
+                float3 b = float3(0.5, 0.5, 0.5);
+                float3 c = float3(1.0, 1.0, 1.0);
+                float3 d = float3(0.0, 0.33, 0.67);
+                return a + b * cos(6.28318 * (c * t + d));
+            }
+
+            half4 main(float2 fragCoord) {
+                float2 uv = fragCoord / iResolution.xy;
+                float2 p = uv * 2.0 - 1.0;
+                p.x *= iResolution.x / iResolution.y;
+                
+                p *= (0.6 + iScale * 1.0);
+                p += iOffset * (iParallax * 0.12);
+                
+                float time = iTime * iSpeed * iViscosity;
+                float audioLevel = iAudio * iAudioReact;
+
+                // Create smooth swirling fluid paths
+                float2 distort = p;
+                for(float i = 1.0; i < 4.0; i++) {
+                    float t = time + (audioLevel * 0.8);
+                    distort.x += sin(p.y * i * 1.2 + t) * 0.2 / i;
+                    distort.y += cos(p.x * i * 1.5 - t) * 0.2 / i;
+                }
+
+                // Wave pattern
+                float wave = sin(distort.x * 2.0 + time) * cos(distort.y * 2.0 - time) * 0.5 + 0.5;
+                
+                // Color mapping: blend base theme colors with pearlescent spectral colors
+                float3 baseCol = mix(colorA, colorB, wave);
+                
+                // Iridescent sheen based on angle and depth
+                float sheenFactor = dot(normalize(distort), normalize(p)) * 0.5 + 0.5;
+                float3 iridescent = spectral(sheenFactor + time * 0.1 + audioLevel * 0.3);
+                
+                // Blend base color and pearlescent iridescence
+                float3 finalCol = mix(baseCol, iridescent, 0.45);
+                
+                // Add soft highlighting
+                float highlight = pow(sheenFactor, 10.0) * (0.3 + audioLevel * 0.5);
+                finalCol += float3(highlight);
+                
+                // Contrast & Vignette
+                finalCol = mix(finalCol, (finalCol - 0.5) * (1.0 + iContrast * 0.6) + 0.5, iContrast);
+                float vignette = 1.0 - length(p * 0.4) * 0.6;
+                finalCol *= vignette;
+                
+                return half4(finalCol.r, finalCol.g, finalCol.b, 1.0);
             }
         """.trimIndent()
 
@@ -579,6 +656,7 @@ class VibeFlowWallpaperService : WallpaperService() {
                         1 -> AGSL_PLASMA_SHADER
                         2 -> AGSL_GRID_SHADER
                         3 -> AGSL_PURE_CHROME_SHADER
+                        4 -> AGSL_PEARL_SHADER
                         else -> AGSL_LIQUID_SHADER
                     }
                     shader = RuntimeShader(shaderString)
