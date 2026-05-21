@@ -41,7 +41,16 @@ class VibeFlowWallpaperService : WallpaperService() {
         private var audioReactivity = 0.5f
         private var bloomIntensity = 0.4f
 
+        // Advanced Customization Parameters
+        private var brightnessVal = 1.0f
+        private var saturationVal = 1.0f
+        private var hueShiftVal = 0.0f
+        private var vignetteVal = 1.0f
+        private var noiseIntensityVal = 0.3f
+
         private var currentStyle = -1
+        private var lastCustomCode = ""
+        private val activeUniforms = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
         // Sensor
         private lateinit var sensorManager: SensorManager
@@ -110,6 +119,29 @@ class VibeFlowWallpaperService : WallpaperService() {
             uniform float3 colorA;
             uniform float3 colorB;
 
+            uniform float iBrightness;
+            uniform float iSaturation;
+            uniform float iHueShift;
+            uniform float iVignette;
+            uniform float iNoiseIntensity;
+
+            float3 adjustColor(float3 color, float brightness, float saturation, float hueShift) {
+                float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+                float4 p = mix(float4(color.bg, K.wz), float4(color.gb, K.xy), step(color.b, color.g));
+                float4 q = mix(float4(p.xyw, color.r), float4(color.r, p.yzx), step(p.x, color.r));
+                float d = q.x - min(q.w, q.y);
+                float e = 1.0e-10;
+                float3 hsv = float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+
+                hsv.x = fract(hsv.x + hueShift);
+                hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
+                hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+
+                float4 K2 = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                float3 rgb = abs(fract(hsv.xxx + K2.xyz) * 6.0 - K2.www);
+                return hsv.z * mix(K2.xxx, clamp(rgb - K2.xxx, 0.0, 1.0), hsv.y);
+            }
+
             half4 main(float2 fragCoord) {
                 float2 uv = fragCoord / iResolution.xy;
                 uv = uv * 2.0 - 1.0;
@@ -143,8 +175,15 @@ class VibeFlowWallpaperService : WallpaperService() {
                 col = mix(col, (col - 0.5) * (1.0 + iContrast * 0.8) + 0.5, iContrast);
                 
                 // Gentle vignette to focus the eyes
-                float vignette = 1.0 - length(p) * 0.3;
+                float vignette = 1.0 - length(p) * (0.3 * iVignette);
                 col *= vignette;
+                
+                // GPU Custom Tuning (Hue, Saturation, Brightness)
+                col = adjustColor(col, iBrightness, iSaturation, iHueShift);
+                
+                // Subtle high-end organic noise texture
+                float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233))) * 43758.5453) * 0.1 * iNoiseIntensity;
+                col += float3(grain);
                 
                 return half4(col.r, col.g, col.b, 1.0);
             }
@@ -165,6 +204,29 @@ class VibeFlowWallpaperService : WallpaperService() {
             uniform float iContrast;
             uniform float3 colorA;
             uniform float3 colorB;
+
+            uniform float iBrightness;
+            uniform float iSaturation;
+            uniform float iHueShift;
+            uniform float iVignette;
+            uniform float iNoiseIntensity;
+
+            float3 adjustColor(float3 color, float brightness, float saturation, float hueShift) {
+                float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+                float4 p = mix(float4(color.bg, K.wz), float4(color.gb, K.xy), step(color.b, color.g));
+                float4 q = mix(float4(p.xyw, color.r), float4(color.r, p.yzx), step(p.x, color.r));
+                float d = q.x - min(q.w, q.y);
+                float e = 1.0e-10;
+                float3 hsv = float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+
+                hsv.x = fract(hsv.x + hueShift);
+                hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
+                hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+
+                float4 K2 = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                float3 rgb = abs(fract(hsv.xxx + K2.xyz) * 6.0 - K2.www);
+                return hsv.z * mix(K2.xxx, clamp(rgb - K2.xxx, 0.0, 1.0), hsv.y);
+            }
 
             half4 main(float2 fragCoord) {
                 float2 uv = fragCoord / iResolution.xy;
@@ -196,8 +258,15 @@ class VibeFlowWallpaperService : WallpaperService() {
                 col += float3(depth * iAudio * iBloom * 1.5);
                 col = mix(col, (col - 0.5) * (1.0 + iContrast * 0.8) + 0.5, iContrast);
                 
-                float vignette = 1.0 - length(p) * 0.5;
+                float vignette = 1.0 - length(p) * (0.5 * iVignette);
                 col *= vignette;
+                
+                // GPU Custom Tuning (Hue, Saturation, Brightness)
+                col = adjustColor(col, iBrightness, iSaturation, iHueShift);
+                
+                // Subtle high-end organic noise texture
+                float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233))) * 43758.5453) * 0.1 * iNoiseIntensity;
+                col += float3(grain);
                 
                 return half4(col.r, col.g, col.b, 1.0);
             }
@@ -218,6 +287,29 @@ class VibeFlowWallpaperService : WallpaperService() {
             uniform float iContrast;
             uniform float3 colorA;
             uniform float3 colorB;
+
+            uniform float iBrightness;
+            uniform float iSaturation;
+            uniform float iHueShift;
+            uniform float iVignette;
+            uniform float iNoiseIntensity;
+
+            float3 adjustColor(float3 color, float brightness, float saturation, float hueShift) {
+                float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+                float4 p = mix(float4(color.bg, K.wz), float4(color.gb, K.xy), step(color.b, color.g));
+                float4 q = mix(float4(p.xyw, color.r), float4(color.r, p.yzx), step(p.x, color.r));
+                float d = q.x - min(q.w, q.y);
+                float e = 1.0e-10;
+                float3 hsv = float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+
+                hsv.x = fract(hsv.x + hueShift);
+                hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
+                hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+
+                float4 K2 = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                float3 rgb = abs(fract(hsv.xxx + K2.xyz) * 6.0 - K2.www);
+                return hsv.z * mix(K2.xxx, clamp(rgb - K2.xxx, 0.0, 1.0), hsv.y);
+            }
 
             half4 main(float2 fragCoord) {
                 float2 uv = fragCoord / iResolution.xy;
@@ -243,13 +335,21 @@ class VibeFlowWallpaperService : WallpaperService() {
                 col = mix(col, float3(colorA.g, colorB.b, colorA.r), m2);
                 col = mix(col, colorB * 1.5, m3);
                 
-                // Premium frosted glass grain
-                float grain = fract(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453) * 0.03;
-                col += grain;
-                
                 col += (m1 * m2 * m3) * iBloom * 5.0;
                 
                 col = (col - 0.5) * (0.5 + iContrast * 1.5) + 0.5;
+
+                // Gentle vignette to focus the eyes
+                float vignette = 1.0 - length(p) * (0.4 * iVignette);
+                col *= vignette;
+
+                // GPU Custom Tuning (Hue, Saturation, Brightness)
+                col = adjustColor(col, iBrightness, iSaturation, iHueShift);
+                
+                // Premium frosted glass grain controlled by iNoiseIntensity
+                float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233))) * 43758.5453) * 0.1 * iNoiseIntensity;
+                col += float3(grain);
+                
                 return half4(col.r, col.g, col.b, 1.0);
             }
         """.trimIndent()
@@ -269,6 +369,12 @@ class VibeFlowWallpaperService : WallpaperService() {
             uniform float iContrast;
             uniform float3 colorA;
             uniform float3 colorB;
+
+            uniform float iBrightness;
+            uniform float iSaturation;
+            uniform float iHueShift;
+            uniform float iVignette;
+            uniform float iNoiseIntensity;
 
             // Stable Hash
             float hash(float2 p) {
@@ -323,6 +429,23 @@ class VibeFlowWallpaperService : WallpaperService() {
                 // Scale complexity parameter
                 float comp = 2.0 + iComplexity * 3.0;
                 return fbm(p + comp * r);
+            }
+
+            float3 adjustColor(float3 color, float brightness, float saturation, float hueShift) {
+                float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+                float4 p = mix(float4(color.bg, K.wz), float4(color.gb, K.xy), step(color.b, color.g));
+                float4 q = mix(float4(p.xyw, color.r), float4(color.r, p.yzx), step(p.x, color.r));
+                float d = q.x - min(q.w, q.y);
+                float e = 1.0e-10;
+                float3 hsv = float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+
+                hsv.x = fract(hsv.x + hueShift);
+                hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
+                hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+
+                float4 K2 = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                float3 rgb = abs(fract(hsv.xxx + K2.xyz) * 6.0 - K2.www);
+                return hsv.z * mix(K2.xxx, clamp(rgb - K2.xxx, 0.0, 1.0), hsv.y);
             }
 
             half4 main(float2 fragCoord) {
@@ -382,8 +505,8 @@ class VibeFlowWallpaperService : WallpaperService() {
                 
                 // Brushed Metal Texture for Valleys
                 float2 grainUV = fragCoord * float2(1.8, 0.1); 
-                float grain = hash(grainUV) * 0.12;
-                float3 valleyColor = float3(0.02, 0.02, 0.02) + grain; // Pitch black with grain
+                float grainVal = hash(grainUV) * 0.12;
+                float3 valleyColor = float3(0.02, 0.02, 0.02) + grainVal; // Pitch black with grain
                 
                 // Combine: Chrome on hills, brushed texture in valleys
                 float3 finalColor = mix(valleyColor, chromeColor, valley);
@@ -394,6 +517,17 @@ class VibeFlowWallpaperService : WallpaperService() {
                 // High Contrast
                 finalColor = (finalColor - 0.5) * (1.2 + iContrast * 1.4) + 0.5;
                 finalColor = clamp(finalColor, 0.0, 1.0);
+
+                // Vignette Strength
+                float vignette = 1.0 - length(p) * (0.4 * iVignette);
+                finalColor *= vignette;
+
+                // GPU Custom Tuning (Hue, Saturation, Brightness)
+                finalColor = adjustColor(finalColor, iBrightness, iSaturation, iHueShift);
+                
+                // Premium frosted glass grain controlled by iNoiseIntensity
+                float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233))) * 43758.5453) * 0.1 * iNoiseIntensity;
+                finalColor += float3(grain);
                 
                 // Dummy to keep SkSL happy
                 finalColor += (colorA + colorB) * 0.000001;
@@ -418,6 +552,12 @@ class VibeFlowWallpaperService : WallpaperService() {
             uniform float3 colorA;
             uniform float3 colorB;
 
+            uniform float iBrightness;
+            uniform float iSaturation;
+            uniform float iHueShift;
+            uniform float iVignette;
+            uniform float iNoiseIntensity;
+
             // Palette generator for iridescent colors
             float3 spectral(float t) {
                 // Classic dynamic spectral shift formula (oil on water / mother-of-pearl)
@@ -426,6 +566,23 @@ class VibeFlowWallpaperService : WallpaperService() {
                 float3 c = float3(1.0, 1.0, 1.0);
                 float3 d = float3(0.0, 0.33, 0.67);
                 return a + b * cos(6.28318 * (c * t + d));
+            }
+
+            float3 adjustColor(float3 color, float brightness, float saturation, float hueShift) {
+                float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+                float4 p = mix(float4(color.bg, K.wz), float4(color.gb, K.xy), step(color.b, color.g));
+                float4 q = mix(float4(p.xyw, color.r), float4(color.r, p.yzx), step(p.x, color.r));
+                float d = q.x - min(q.w, q.y);
+                float e = 1.0e-10;
+                float3 hsv = float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+
+                hsv.x = fract(hsv.x + hueShift);
+                hsv.y = clamp(hsv.y * saturation, 0.0, 1.0);
+                hsv.z = clamp(hsv.z * brightness, 0.0, 1.0);
+
+                float4 K2 = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+                float3 rgb = abs(fract(hsv.xxx + K2.xyz) * 6.0 - K2.www);
+                return hsv.z * mix(K2.xxx, clamp(rgb - K2.xxx, 0.0, 1.0), hsv.y);
             }
 
             half4 main(float2 fragCoord) {
@@ -466,8 +623,15 @@ class VibeFlowWallpaperService : WallpaperService() {
                 
                 // Contrast & Vignette
                 finalCol = mix(finalCol, (finalCol - 0.5) * (1.0 + iContrast * 0.6) + 0.5, iContrast);
-                float vignette = 1.0 - length(p * 0.4) * 0.6;
+                float vignette = 1.0 - length(p * 0.4) * (0.6 * iVignette);
                 finalCol *= vignette;
+
+                // GPU Custom Tuning (Hue, Saturation, Brightness)
+                finalCol = adjustColor(finalCol, iBrightness, iSaturation, iHueShift);
+                
+                // Premium frosted glass grain controlled by iNoiseIntensity
+                float grain = fract(sin(dot(fragCoord, float2(12.9898, 78.233))) * 43758.5453) * 0.1 * iNoiseIntensity;
+                finalCol += float3(grain);
                 
                 return half4(finalCol.r, finalCol.g, finalCol.b, 1.0);
             }
@@ -495,6 +659,12 @@ class VibeFlowWallpaperService : WallpaperService() {
         }
 
         private fun setupAudioVisualizer() {
+            // Release any stale instance first to prevent ERROR_NO_MEMORY (-3)
+            try {
+                visualizer?.release()
+            } catch (_: Exception) {}
+            visualizer = null
+
             try {
                 // Initialize visualizer on output mix (session 0)
                 visualizer = Visualizer(0).apply {
@@ -517,8 +687,36 @@ class VibeFlowWallpaperService : WallpaperService() {
                         override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {}
                     }, Visualizer.getMaxCaptureRate() / 2, true, false)
                 }
+            } catch (e: RuntimeException) {
+                // Error -3 (NO_MEMORY): audio subsystem still holds a session reference.
+                // Retry once after a short delay to let the system reclaim resources.
+                visualizer = null
+                renderHandler?.postDelayed({
+                    try {
+                        visualizer = Visualizer(0).apply {
+                            captureSize = Visualizer.getCaptureSizeRange()[1]
+                            setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                                override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                                    if (waveform == null) return
+                                    var sum = 0f
+                                    for (byte in waveform) {
+                                        val amplitude = byte.toFloat()
+                                        sum += amplitude * amplitude
+                                    }
+                                    val rms = Math.sqrt((sum / waveform.size).toDouble()).toFloat()
+                                    audioAmplitude = audioAmplitude * 0.8f + (rms / 128f) * 0.2f
+                                }
+                                override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {}
+                            }, Visualizer.getMaxCaptureRate() / 2, true, false)
+                            enabled = true
+                        }
+                    } catch (_: Exception) {
+                        // Still failed — audio reactivity stays off silently
+                        visualizer = null
+                    }
+                }, 500L)
             } catch (e: Exception) {
-                e.printStackTrace() // Handle permission denial or disabled Visualizer gracefully
+                visualizer = null
             }
         }
 
@@ -642,6 +840,12 @@ class VibeFlowWallpaperService : WallpaperService() {
             audioReactivity = prefs.getFloat("audio_reactivity", 0.5f)
             bloomIntensity = prefs.getFloat("bloom_intensity", 0.4f)
             
+            brightnessVal = prefs.getFloat("brightness", 1.0f)
+            saturationVal = prefs.getFloat("saturation", 1.0f)
+            hueShiftVal = prefs.getFloat("hue_shift", 0.0f)
+            vignetteVal = prefs.getFloat("vignette_intensity", 1.0f)
+            noiseIntensityVal = prefs.getFloat("noise_intensity", 0.3f)
+            
             fftEnabled = prefs.getBoolean("fft_enabled", true)
             gyroEnabled = prefs.getBoolean("gyro_enabled", true)
             
@@ -649,18 +853,62 @@ class VibeFlowWallpaperService : WallpaperService() {
 
             // Visual Style Compilation
             val newStyle = prefs.getInt("visual_style", 0)
-            if (newStyle != currentStyle) {
+            val customCode = prefs.getString("custom_agsl_shader_code", "") ?: ""
+            if (newStyle != currentStyle || (newStyle == 5 && customCode != lastCustomCode)) {
                 currentStyle = newStyle
+                lastCustomCode = customCode
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val shaderString = when (currentStyle) {
                         1 -> AGSL_PLASMA_SHADER
                         2 -> AGSL_GRID_SHADER
                         3 -> AGSL_PURE_CHROME_SHADER
                         4 -> AGSL_PEARL_SHADER
+                        5 -> if (customCode.isNotEmpty()) customCode else AGSL_LIQUID_SHADER
                         else -> AGSL_LIQUID_SHADER
                     }
-                    shader = RuntimeShader(shaderString)
-                    paint.shader = shader
+                    try {
+                        shader = RuntimeShader(shaderString)
+                        updateActiveUniforms(shaderString)
+                        paint.shader = shader
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        // Safe fallback to default shader
+                        try {
+                            shader = RuntimeShader(AGSL_LIQUID_SHADER)
+                            updateActiveUniforms(AGSL_LIQUID_SHADER)
+                            paint.shader = shader
+                        } catch (ex: Exception) {
+                            ex.printStackTrace()
+                        }
+                    }
+                }
+            }
+        }
+
+        private fun updateActiveUniforms(shaderString: String) {
+            activeUniforms.clear()
+            // Strip comments first to avoid matching commented-out uniform declarations
+            val cleanCode = shaderString
+                .replace("/\\*[\\s\\S]*?\\*/".toRegex(), "")
+                .replace("//.*".toRegex(), "")
+            
+            val uniformRegex = "\\buniform\\s+\\w+\\s+(\\w+)\\b".toRegex()
+            uniformRegex.findAll(cleanCode).forEach { match ->
+                match.groups[1]?.value?.let { activeUniforms.add(it) }
+            }
+        }
+
+        private fun setFloatUniformSafe(name: String, vararg values: Float) {
+            if (activeUniforms.contains(name)) {
+                try {
+                    when (values.size) {
+                        1 -> shader?.setFloatUniform(name, values[0])
+                        2 -> shader?.setFloatUniform(name, values[0], values[1])
+                        3 -> shader?.setFloatUniform(name, values[0], values[1], values[2])
+                        4 -> shader?.setFloatUniform(name, values[0], values[1], values[2], values[3])
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }
@@ -719,27 +967,33 @@ class VibeFlowWallpaperService : WallpaperService() {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
                         val time = (System.currentTimeMillis() - startTime) / 1000f
                         
-                        shader?.setFloatUniform("iResolution", canvas.width.toFloat(), canvas.height.toFloat())
-                        shader?.setFloatUniform("iTime", time)
+                        setFloatUniformSafe("iResolution", canvas.width.toFloat(), canvas.height.toFloat())
+                        setFloatUniformSafe("iTime", time)
                         val currentGyroX = if (gyroEnabled) gyroX else 0f
                         val currentGyroY = if (gyroEnabled) gyroY else 0f
-                        shader?.setFloatUniform("iOffset", currentGyroX, currentGyroY)
+                        setFloatUniformSafe("iOffset", currentGyroX, currentGyroY)
                         
                         val currentAudio = if (fftEnabled) audioAmplitude else 0f
-                        shader?.setFloatUniform("iAudio", currentAudio)
+                        setFloatUniformSafe("iAudio", currentAudio)
 
-                        shader?.setFloatUniform("iSpeed", animationSpeed)
-                        shader?.setFloatUniform("iViscosity", fluidViscosity)
-                        shader?.setFloatUniform("iComplexity", particleCount)
-                        shader?.setFloatUniform("iScale", waveScale)
-                        shader?.setFloatUniform("iParallax", parallaxIntensity)
-                        shader?.setFloatUniform("iContrast", contrastLevel)
-                        shader?.setFloatUniform("iAudioReact", audioReactivity)
-                        shader?.setFloatUniform("iBloom", bloomIntensity)
+                        setFloatUniformSafe("iSpeed", animationSpeed)
+                        setFloatUniformSafe("iViscosity", fluidViscosity)
+                        setFloatUniformSafe("iComplexity", particleCount)
+                        setFloatUniformSafe("iScale", waveScale)
+                        setFloatUniformSafe("iParallax", parallaxIntensity)
+                        setFloatUniformSafe("iContrast", contrastLevel)
+                        setFloatUniformSafe("iAudioReact", audioReactivity)
+                        setFloatUniformSafe("iBloom", bloomIntensity)
+
+                        setFloatUniformSafe("iBrightness", brightnessVal)
+                        setFloatUniformSafe("iSaturation", saturationVal)
+                        setFloatUniformSafe("iHueShift", hueShiftVal / 360f)
+                        setFloatUniformSafe("iVignette", vignetteVal)
+                        setFloatUniformSafe("iNoiseIntensity", noiseIntensityVal)
                         
                         // Dynamic Colors from Prefs
-                        shader?.setFloatUniform("colorA", currentColorA[0], currentColorA[1], currentColorA[2])
-                        shader?.setFloatUniform("colorB", currentColorB[0], currentColorB[1], currentColorB[2])
+                        setFloatUniformSafe("colorA", currentColorA[0], currentColorA[1], currentColorA[2])
+                        setFloatUniformSafe("colorB", currentColorB[0], currentColorB[1], currentColorB[2])
 
                         canvas.drawRect(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat(), paint)
                     } else {
