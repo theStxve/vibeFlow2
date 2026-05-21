@@ -69,6 +69,9 @@ Write, compile, and run your own custom AGSL fragment shaders directly on your d
 > [!NOTE]
 > A high-end GPU (e.g. Snapdragon 8 Gen 1 or equivalent) is recommended for fluid simulation with high viscosity settings and Bloom enabled.
 
+> [!IMPORTANT]
+> If you dont want to build this app from source you can download the APK from the [Releases](https://github.com/theStxve/vibeFlow2/releases) page.
+
 ---
 
 ## License & Disclaimers
