@@ -48,6 +48,9 @@ Write, compile, and run your own custom AGSL fragment shaders directly on your d
 *   **Frame Capping:** Battery Saver Mode locks the framerate to 30 FPS and disables heavy post-processing.
 *   **Native Wallpaper Lifecycle:** Rendering halts completely when the screen is off or another app goes fullscreen.
 
+> [!NOTE]
+> A high-end GPU (e.g. Snapdragon 8 Gen 1 or equivalent) is recommended for fluid simulation with high viscosity settings and Bloom enabled.
+
 ---
 
 ## Setup & Installation
@@ -65,9 +68,6 @@ Write, compile, and run your own custom AGSL fragment shaders directly on your d
     ```
 2.  **Open in Android Studio** and allow Gradle to sync.
 3.  **Deploy** the `app` configuration to a physical device or emulator running Android 13+.
-
-> [!NOTE]
-> A high-end GPU (e.g. Snapdragon 8 Gen 1 or equivalent) is recommended for fluid simulation with high viscosity settings and Bloom enabled.
 
 > [!IMPORTANT]
 > If you dont want to build this app from source you can download the APK from the [Releases](https://github.com/theStxve/vibeFlow2/releases) page.
